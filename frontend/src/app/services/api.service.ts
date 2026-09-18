@@ -14,4 +14,8 @@ export class ApiService {
       responseType: 'text'
     });
   }
+
+  getRecentlyPlayed(): Observable<any> {
+    return this.http.get<any>('/api/spotify/recently-played');
+  }
 }

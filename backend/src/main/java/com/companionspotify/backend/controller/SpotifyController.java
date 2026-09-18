@@ -9,6 +9,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
+import com.companionspotify.backend.entity.Artist;
+import com.companionspotify.backend.entity.Track;
+import java.util.List;
+import com.companionspotify.backend.entity.ListeningHistory;
 
 import java.util.Map;
 
@@ -177,6 +181,38 @@ public class SpotifyController {
 
         return Map.of(
                 "savedListeningHistory", saved
+        );
+        }
+
+    @GetMapping("/api/spotify/history")
+        public List<ListeningHistory> history(
+                HttpSession session
+        ) {
+        return spotifySyncService.getListeningHistory(session);
+        }
+
+        @GetMapping("/api/music/top-tracks")
+        public List<Track> topTracksFromDatabase() {
+            return spotifySyncService.getTopTracks();
+        }
+        
+        @GetMapping("/api/music/top-artists")
+        public List<Artist> topArtistsFromDatabase() {
+            return spotifySyncService.getTopArtists();
+        }
+
+        @GetMapping("/api/spotify/sync/playlists")
+        public Map<String, Object> syncPlaylists(
+                HttpSession session
+        ) {
+
+        int saved =
+                spotifySyncService.syncPlaylists(
+                        session
+                );
+
+        return Map.of(
+                "savedPlaylists", saved
         );
         }
 }

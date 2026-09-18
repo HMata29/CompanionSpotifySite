@@ -2,10 +2,14 @@ package com.companionspotify.backend.service;
 
 import com.companionspotify.backend.entity.Artist;
 import com.companionspotify.backend.entity.ListeningHistory;
+import com.companionspotify.backend.entity.Playlist;
+import com.companionspotify.backend.entity.PlaylistTrack;
 import com.companionspotify.backend.entity.SpotifyAccount;
 import com.companionspotify.backend.entity.Track;
 import com.companionspotify.backend.repository.ArtistRepository;
 import com.companionspotify.backend.repository.ListeningHistoryRepository;
+import com.companionspotify.backend.repository.PlaylistRepository;
+import com.companionspotify.backend.repository.PlaylistTrackRepository;
 import com.companionspotify.backend.repository.SpotifyAccountRepository;
 import com.companionspotify.backend.repository.TrackRepository;
 import jakarta.servlet.http.HttpSession;
@@ -18,424 +22,376 @@ import java.util.Map;
 @Service
 public class SpotifySyncService {
 
-    private final SpotifyOAuthService spotifyOAuthService;
-    private final SpotifyAccountRepository spotifyAccountRepository;
-    private final ArtistRepository artistRepository;
-    private final TrackRepository trackRepository;
-    private final ListeningHistoryRepository listeningHistoryRepository;
+        private final SpotifyOAuthService spotifyOAuthService;
 
-    public SpotifySyncService(
-            SpotifyOAuthService spotifyOAuthService,
-            SpotifyAccountRepository spotifyAccountRepository,
-            ArtistRepository artistRepository,
-            TrackRepository trackRepository,
-            ListeningHistoryRepository listeningHistoryRepository
-    ) {
-        this.spotifyOAuthService = spotifyOAuthService;
-        this.spotifyAccountRepository = spotifyAccountRepository;
-        this.artistRepository = artistRepository;
-        this.trackRepository = trackRepository;
-        this.listeningHistoryRepository = listeningHistoryRepository;
-    }
+        private final SpotifyAccountRepository spotifyAccountRepository;
+        private final ArtistRepository artistRepository;
+        private final TrackRepository trackRepository;
+        private final PlaylistRepository playlistRepository;
+        private final PlaylistTrackRepository playlistTrackRepository;
+        private final ListeningHistoryRepository listeningHistoryRepository;
 
-    public SpotifyAccount syncCurrentUser(HttpSession session) {
-
-        Map<String, Object> spotifyUser =
-                spotifyOAuthService.getCurrentUser(session);
-
-        String spotifyUserId =
-                (String) spotifyUser.get("id");
-
-        String displayName =
-                (String) spotifyUser.get("display_name");
-
-        if (spotifyUserId == null) {
-            throw new IllegalStateException(
-                    "Spotify user ID not found"
-            );
+        public SpotifySyncService(
+                        SpotifyOAuthService spotifyOAuthService,
+                        SpotifyAccountRepository spotifyAccountRepository,
+                        ArtistRepository artistRepository,
+                        TrackRepository trackRepository,
+                        PlaylistRepository playlistRepository,
+                        PlaylistTrackRepository playlistTrackRepository,
+                        ListeningHistoryRepository listeningHistoryRepository) {
+                this.spotifyOAuthService = spotifyOAuthService;
+                this.spotifyAccountRepository = spotifyAccountRepository;
+                this.artistRepository = artistRepository;
+                this.trackRepository = trackRepository;
+                this.playlistRepository = playlistRepository;
+                this.playlistTrackRepository = playlistTrackRepository;
+                this.listeningHistoryRepository = listeningHistoryRepository;
         }
 
-        SpotifyAccount account =
-                spotifyAccountRepository
-                        .findBySpotifyUserId(spotifyUserId)
-                        .orElseGet(SpotifyAccount::new);
+        public SpotifyAccount syncCurrentUser(
+                        HttpSession session) {
 
-        account.setSpotifyUserId(spotifyUserId);
-        account.setDisplayName(displayName);
+                Map<String, Object> spotifyUser = spotifyOAuthService.getCurrentUser(session);
 
-        return spotifyAccountRepository.save(account);
-    }
+                String spotifyUserId = (String) spotifyUser.get("id");
 
-    public int syncTopArtists(
-            HttpSession session,
-            String timeRange
-    ) {
+                String displayName = (String) spotifyUser.get("display_name");
 
-        Map<String, Object> response =
-                spotifyOAuthService.getTopArtists(
-                        session,
-                        timeRange
-                );
+                SpotifyAccount account = spotifyAccountRepository
+                                .findBySpotifyUserId(spotifyUserId)
+                                .orElse(null);
 
-        Object itemsObject = response.get("items");
+                if (account == null) {
+                        account = new SpotifyAccount(
+                                        spotifyUserId,
+                                        displayName);
+                }
 
-        if (!(itemsObject instanceof List<?> items)) {
-            return 0;
+                account.setDisplayName(displayName);
+
+                return spotifyAccountRepository.save(account);
         }
 
-        int saved = 0;
+        public int syncTopArtists(
+                        HttpSession session,
+                        String timeRange) {
 
-        for (Object itemObject : items) {
-
-            if (!(itemObject instanceof Map<?, ?> item)) {
-                continue;
-            }
-
-            String spotifyId =
-                    (String) item.get("id");
-
-            String name =
-                    (String) item.get("name");
-
-            if (spotifyId == null || name == null) {
-                continue;
-            }
-
-            Artist artist =
-                    artistRepository
-                            .findBySpotifyId(spotifyId)
-                            .orElseGet(Artist::new);
-
-            artist.setSpotifyId(spotifyId);
-            artist.setName(name);
-
-            artistRepository.save(artist);
-
-            saved++;
-        }
-
-        return saved;
-    }
-
-    public int syncTopTracks(
-            HttpSession session,
-            String timeRange
-    ) {
-
-        Map<String, Object> response =
-                spotifyOAuthService.getTopTracks(
-                        session,
-                        timeRange
-                );
-
-        Object itemsObject = response.get("items");
-
-        if (!(itemsObject instanceof List<?> items)) {
-            return 0;
-        }
-
-        int saved = 0;
-
-        for (Object itemObject : items) {
-
-            if (!(itemObject instanceof Map<?, ?> item)) {
-                continue;
-            }
-
-            String spotifyId =
-                    (String) item.get("id");
-
-            String name =
-                    (String) item.get("name");
-
-            if (spotifyId == null || name == null) {
-                continue;
-            }
-
-            Object artistsObject =
-                    item.get("artists");
-
-            if (!(artistsObject instanceof List<?> artists)
-                    || artists.isEmpty()) {
-                continue;
-            }
-
-            Object firstArtistObject =
-                    artists.get(0);
-
-            if (!(firstArtistObject instanceof Map<?, ?> artistData)) {
-                continue;
-            }
-
-            String artistSpotifyId =
-                    (String) artistData.get("id");
-
-            String artistName =
-                    (String) artistData.get("name");
-
-            if (artistSpotifyId == null || artistName == null) {
-                continue;
-            }
-
-            Artist artist =
-                    artistRepository
-                            .findBySpotifyId(artistSpotifyId)
-                            .orElseGet(() -> {
-
-                                Artist newArtist =
-                                        new Artist();
-
-                                newArtist.setSpotifyId(
-                                        artistSpotifyId
-                                );
-
-                                newArtist.setName(
-                                        artistName
-                                );
-
-                                return artistRepository.save(
-                                        newArtist
-                                );
-                            });
-
-            Track track =
-                    trackRepository
-                            .findBySpotifyId(spotifyId)
-                            .orElseGet(Track::new);
-
-            track.setSpotifyId(spotifyId);
-            track.setName(name);
-            track.setArtist(artist);
-
-            trackRepository.save(track);
-
-            saved++;
-        }
-
-        return saved;
-    }
-
-    public int syncRecentlyPlayed(
-            HttpSession session
-    ) {
-
-        Map<String, Object> response =
-                spotifyOAuthService.getRecentlyPlayed(
-                        session
-                );
-
-        Object itemsObject =
-                response.get("items");
-
-        if (!(itemsObject instanceof List<?> items)) {
-
-            System.out.println(
-                    "RECENTLY PLAYED: items non trovati"
-            );
-
-            return 0;
-        }
-
-        System.out.println(
-                "RECENTLY PLAYED ITEMS: " + items.size()
-        );
-
-        SpotifyAccount account =
                 syncCurrentUser(session);
 
-        int saved = 0;
+                Map<String, Object> response = spotifyOAuthService.getTopArtists(
+                                session,
+                                timeRange);
 
-        for (Object itemObject : items) {
+                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
 
-            if (!(itemObject instanceof Map<?, ?> item)) {
+                int saved = 0;
 
-                System.out.println(
-                        "SKIP: item non è una Map"
-                );
+                if (items == null) {
+                        return 0;
+                }
 
-                continue;
-            }
+                for (Map<String, Object> item : items) {
 
-            Object trackObject =
-                    item.get("track");
+                        String spotifyId = (String) item.get("id");
 
-            if (!(trackObject instanceof Map<?, ?> trackData)) {
+                        String name = (String) item.get("name");
 
-                System.out.println(
-                        "SKIP: track non trovata"
-                );
+                        Artist artist = artistRepository
+                                        .findBySpotifyId(spotifyId)
+                                        .orElse(null);
 
-                continue;
-            }
+                        if (artist == null) {
+                                artist = new Artist(
+                                                spotifyId,
+                                                name);
+                        }
 
-            String spotifyTrackId =
-                    (String) trackData.get("id");
+                        artist.setName(name);
 
-            String trackName =
-                    (String) trackData.get("name");
+                        artistRepository.save(artist);
 
-            if (spotifyTrackId == null
-                    || trackName == null) {
+                        saved++;
+                }
 
-                System.out.println(
-                        "SKIP: track ID o nome mancanti"
-                );
-
-                continue;
-            }
-
-            Object artistsObject =
-                    trackData.get("artists");
-
-            if (!(artistsObject instanceof List<?> artists)
-                    || artists.isEmpty()) {
-
-                System.out.println(
-                        "SKIP: artisti mancanti per "
-                                + trackName
-                );
-
-                continue;
-            }
-
-            Object firstArtistObject =
-                    artists.get(0);
-
-            if (!(firstArtistObject instanceof Map<?, ?> artistData)) {
-
-                System.out.println(
-                        "SKIP: dati artista non validi per "
-                                + trackName
-                );
-
-                continue;
-            }
-
-            String artistSpotifyId =
-                    (String) artistData.get("id");
-
-            String artistName =
-                    (String) artistData.get("name");
-
-            if (artistSpotifyId == null
-                    || artistName == null) {
-
-                System.out.println(
-                        "SKIP: ID o nome artista mancanti per "
-                                + trackName
-                );
-
-                continue;
-            }
-
-            Artist artist =
-                    artistRepository
-                            .findBySpotifyId(artistSpotifyId)
-                            .orElseGet(() -> {
-
-                                Artist newArtist =
-                                        new Artist();
-
-                                newArtist.setSpotifyId(
-                                        artistSpotifyId
-                                );
-
-                                newArtist.setName(
-                                        artistName
-                                );
-
-                                return artistRepository.save(
-                                        newArtist
-                                );
-                            });
-
-            Track track =
-                    trackRepository
-                            .findBySpotifyId(spotifyTrackId)
-                            .orElseGet(Track::new);
-
-            track.setSpotifyId(spotifyTrackId);
-            track.setName(trackName);
-            track.setArtist(artist);
-
-            track = trackRepository.save(track);
-
-            String playedAtString =
-                    (String) item.get("played_at");
-
-            if (playedAtString == null) {
-
-                System.out.println(
-                        "SKIP: played_at mancante per "
-                                + trackName
-                );
-
-                continue;
-            }
-
-            Instant playedAt;
-
-            try {
-
-                playedAt =
-                        Instant.parse(playedAtString);
-
-            } catch (Exception e) {
-
-                System.out.println(
-                        "SKIP: played_at non valido per "
-                                + trackName
-                );
-
-                continue;
-            }
-
-            boolean alreadyExists =
-                    listeningHistoryRepository
-                            .existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
-                                    account.getId(),
-                                    track.getId(),
-                                    playedAt
-                            );
-
-            if (alreadyExists) {
-
-                System.out.println(
-                        "DUPLICATO: "
-                                + trackName
-                                + " - "
-                                + playedAt
-                );
-
-                continue;
-            }
-
-            ListeningHistory history =
-                    new ListeningHistory(
-                            account,
-                            track,
-                            playedAt
-                    );
-
-            listeningHistoryRepository.save(history);
-
-            saved++;
-
-            System.out.println(
-                    "SALVATO: "
-                            + trackName
-                            + " - "
-                            + artistName
-                            + " - "
-                            + playedAt
-            );
+                return saved;
         }
 
-        System.out.println(
-                "TOTALE LISTENING HISTORY SALVATI: "
-                        + saved
-        );
+        public int syncTopTracks(
+                        HttpSession session,
+                        String timeRange) {
 
-        return saved;
-    }
+                syncCurrentUser(session);
+
+                Map<String, Object> response = spotifyOAuthService.getTopTracks(
+                                session,
+                                timeRange);
+
+                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+
+                int saved = 0;
+
+                if (items == null) {
+                        return 0;
+                }
+
+                for (Map<String, Object> item : items) {
+
+                        saveTrack(item);
+
+                        saved++;
+                }
+
+                return saved;
+        }
+
+        public int syncRecentlyPlayed(
+                        HttpSession session) {
+
+                SpotifyAccount account = syncCurrentUser(session);
+
+                Map<String, Object> response = spotifyOAuthService.getRecentlyPlayed(
+                                session);
+
+                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+
+                int saved = 0;
+
+                if (items == null) {
+                        return 0;
+                }
+
+                for (Map<String, Object> item : items) {
+
+                        Map<String, Object> trackData = (Map<String, Object>) item.get("track");
+
+                        if (trackData == null) {
+                                continue;
+                        }
+
+                        Track track = saveTrack(trackData);
+
+                        String playedAtString = (String) item.get("played_at");
+
+                        if (playedAtString == null) {
+                                continue;
+                        }
+
+                        Instant playedAt = Instant.parse(playedAtString);
+
+                        boolean alreadyExists = listeningHistoryRepository
+                                        .existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
+                                                        account.getId(),
+                                                        track.getId(),
+                                                        playedAt);
+
+                        if (!alreadyExists) {
+
+                                ListeningHistory history = new ListeningHistory(
+                                                account,
+                                                track,
+                                                playedAt);
+
+                                listeningHistoryRepository.save(history);
+
+                                saved++;
+                        }
+                }
+
+                return saved;
+        }
+
+        public int syncPlaylists(
+                        HttpSession session) {
+
+                SpotifyAccount account = syncCurrentUser(session);
+
+                List<Map<String, Object>> playlistItems = spotifyOAuthService.getAllPlaylists(
+                                session);
+
+                int saved = 0;
+
+                for (Map<String, Object> playlistData : playlistItems) {
+
+                        String spotifyPlaylistId = (String) playlistData.get("id");
+
+                        String name = (String) playlistData.get("name");
+
+                        Map<String, Object> externalUrls = (Map<String, Object>) playlistData.get("external_urls");
+
+                        String spotifyUrl = null;
+
+                        if (externalUrls != null) {
+                                spotifyUrl = (String) externalUrls.get("spotify");
+                        }
+
+                        Playlist playlist = playlistRepository
+                                        .findBySpotifyId(spotifyPlaylistId)
+                                        .orElse(null);
+
+                        if (playlist == null) {
+
+                                playlist = new Playlist(
+                                                spotifyPlaylistId,
+                                                name,
+                                                spotifyUrl,
+                                                account);
+
+                        } else {
+
+                                playlist.setName(name);
+                                playlist.setSpotifyUrl(spotifyUrl);
+                                playlist.setSpotifyAccount(account);
+                        }
+
+                        playlist = playlistRepository.save(playlist);
+
+                        System.out.println(
+                                        "SYNC PLAYLIST: "
+                                                        + playlist.getName()
+                                                        + " | "
+                                                        + playlist.getSpotifyId());
+
+                        try {
+
+                                syncPlaylistItems(
+                                                session,
+                                                playlist);
+
+                                saved++;
+
+                        } catch (Exception e) {
+
+                                System.out.println(
+                                                "SKIPPING PLAYLIST: "
+                                                                + playlist.getName()
+                                                                + " | "
+                                                                + playlist.getSpotifyId()
+                                                                + " | "
+                                                                + e.getMessage());
+                                                           }
+                }
+
+                return saved;
+        }
+
+        private void syncPlaylistItems(
+                        HttpSession session,
+                        Playlist playlist) {
+
+                List<Map<String, Object>> items = spotifyOAuthService.getAllPlaylistItems(
+                                session,
+                                playlist.getSpotifyId());
+
+                int position = 0;
+
+                for (Map<String, Object> item : items) {
+
+                        Map<String, Object> trackData = (Map<String, Object>) item.get("item");
+
+                        if (trackData == null) {
+                                continue;
+                        }
+
+                        Object trackType = trackData.get("type");
+
+                        if (!"track".equals(trackType)) {
+                                continue;
+                        }
+
+                        Track track = saveTrack(trackData);
+
+                        boolean alreadyExists = playlistTrackRepository
+                                        .existsByPlaylistIdAndTrackId(
+                                                        playlist.getId(),
+                                                        track.getId());
+
+                        if (!alreadyExists) {
+
+                                PlaylistTrack playlistTrack = new PlaylistTrack(
+                                                playlist,
+                                                track,
+                                                position);
+
+                                playlistTrackRepository.save(
+                                                playlistTrack);
+                        }
+
+                        position++;
+                }
+        }
+
+        private Track saveTrack(
+                        Map<String, Object> trackData) {
+
+                String spotifyTrackId = (String) trackData.get("id");
+
+                String trackName = (String) trackData.get("name");
+
+                List<Map<String, Object>> artists = (List<Map<String, Object>>) trackData.get("artists");
+
+                if (artists == null || artists.isEmpty()) {
+                        throw new IllegalStateException(
+                                        "Track has no artist: " + trackName);
+                }
+
+                Map<String, Object> firstArtist = artists.get(0);
+
+                String spotifyArtistId = (String) firstArtist.get("id");
+
+                String artistName = (String) firstArtist.get("name");
+
+                Artist artist = artistRepository
+                                .findBySpotifyId(spotifyArtistId)
+                                .orElse(null);
+
+                if (artist == null) {
+
+                        artist = new Artist(
+                                        spotifyArtistId,
+                                        artistName);
+                }
+
+                artist.setName(artistName);
+
+                artist = artistRepository.save(artist);
+
+                Track track = trackRepository
+                                .findBySpotifyId(spotifyTrackId)
+                                .orElse(null);
+
+                if (track == null) {
+
+                        track = new Track(
+                                        spotifyTrackId,
+                                        trackName,
+                                        artist);
+
+                } else {
+
+                        track.setName(trackName);
+                        track.setArtist(artist);
+                }
+
+                return trackRepository.save(track);
+        }
+
+        public List<ListeningHistory> getListeningHistory(
+                        HttpSession session) {
+
+                SpotifyAccount account = syncCurrentUser(session);
+
+                return listeningHistoryRepository
+                                .findBySpotifyAccountIdOrderByPlayedAtDesc(
+                                                account.getId());
+        }
+
+        public List<Track> getTopTracks() {
+
+                return trackRepository.findAll();
+        }
+
+        public List<Artist> getTopArtists() {
+
+                return artistRepository.findAll();
+        }
 }

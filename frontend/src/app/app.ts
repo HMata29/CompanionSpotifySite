@@ -12,24 +12,38 @@ export class App {
 
   healthMessage = signal('Checking backend...');
 
+  recentlyPlayed = signal<any[]>([]);
+  recentlyPlayedLoading = signal(true);
+  recentlyPlayedError = signal(false);
+
   constructor() {
-    console.log('App component initialized');
-    console.log('Calling /api/health...');
 
     this.apiService.getHealth().subscribe({
-      next: (response) => {
-        console.log('Backend response:', response);
-        this.healthMessage.set(response);
-      },
-      error: (error) => {
-        console.error('Backend connection error:', error);
+      next: response => this.healthMessage.set(response),
+      error: error =>
         this.healthMessage.set(
           `Backend connection failed: ${error.status} ${error.statusText}`
-        );
+        )
+    });
+
+    this.loadRecentlyPlayed();
+  }
+
+  private loadRecentlyPlayed(): void {
+
+    this.apiService.getRecentlyPlayed().subscribe({
+
+      next: response => {
+        this.recentlyPlayed.set(response.items ?? []);
+        this.recentlyPlayedLoading.set(false);
       },
-      complete: () => {
-        console.log('Health request completed');
+
+      error: error => {
+        console.error('Failed to load recently played', error);
+        this.recentlyPlayedError.set(true);
+        this.recentlyPlayedLoading.set(false);
       }
+
     });
   }
 }

@@ -1,10 +1,221 @@
-<div class="container">
-  <h1>Companion Spotify</h1>
+<div class="app-shell">
 
-  <p>Frontend Angular is running.</p>
+  <aside class="sidebar">
 
-  <div class="backend-status">
-    <strong>Backend status:</strong>
-    <span>{{ healthMessage() }}</span>
-  </div>
+    <div class="logo">
+      <span class="logo-icon">♫</span>
+      <span>Companion</span>
+    </div>
+
+    <nav class="main-nav">
+      <a class="nav-item active">
+        <span>⌂</span>
+        <span>Dashboard</span>
+      </a>
+
+      <a class="nav-item">
+        <span>♫</span>
+        <span>Your Music</span>
+      </a>
+
+      <a class="nav-item">
+        <span>✦</span>
+        <span>Discover</span>
+      </a>
+
+      <a class="nav-item">
+        <span>▣</span>
+        <span>Playlists</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="connection-status">
+        <span class="status-dot"></span>
+        <span>Spotify connected</span>
+      </div>
+    </div>
+
+  </aside>
+
+
+  <main class="main-content">
+
+    <header class="topbar">
+
+      <div>
+        <p class="eyebrow">YOUR MUSIC COMPANION</p>
+        <h1>Good morning 👋</h1>
+      </div>
+
+      <button class="profile-button">
+        <span class="profile-avatar">H</span>
+        <span>Hedrick</span>
+        <span>⌄</span>
+      </button>
+
+    </header>
+
+
+    <section class="hero">
+
+      <div class="hero-content">
+        <p class="hero-label">YOUR DAILY MUSIC INTELLIGENCE</p>
+
+        <h2>
+          Discover something
+          <span>you'll love.</span>
+        </h2>
+
+        <p class="hero-description">
+          Your listening habits, analysed to find music
+          you might have missed.
+        </p>
+
+        <button class="primary-button">
+          <span>✦</span>
+          Generate today's playlist
+        </button>
+      </div>
+
+      <div class="hero-decoration">
+        <div class="vinyl">
+          <div class="vinyl-center"></div>
+        </div>
+      </div>
+
+    </section>
+
+
+    <section class="section">
+
+      <div class="section-header">
+        <div>
+          <p class="section-label">YOUR LISTENING</p>
+          <h2>Music at a glance</h2>
+        </div>
+
+        <button class="text-button">
+          View all →
+        </button>
+      </div>
+
+
+      <div class="stats-grid">
+
+        <article class="stat-card">
+          <span class="stat-icon">♫</span>
+
+          <div>
+            <p class="stat-title">Top tracks</p>
+            <p class="stat-value">50</p>
+            <p class="stat-description">this month</p>
+          </div>
+        </article>
+
+
+        <article class="stat-card">
+          <span class="stat-icon">♬</span>
+
+          <div>
+            <p class="stat-title">Top artists</p>
+            <p class="stat-value">50</p>
+            <p class="stat-description">this month</p>
+          </div>
+        </article>
+
+
+        <article class="stat-card">
+          <span class="stat-icon">◷</span>
+
+          <div>
+            <p class="stat-title">Recently played</p>
+            <p class="stat-value">50</p>
+            <p class="stat-description">latest plays</p>
+          </div>
+        </article>
+
+      </div>
+
+    </section>
+
+
+    <section class="section">
+
+      <div class="section-header">
+        <div>
+          <p class="section-label">LISTEN AGAIN</p>
+          <h2>Recently played</h2>
+        </div>
+
+        <button class="text-button">
+          See history →
+        </button>
+      </div>
+
+
+      <div class="track-grid">
+
+        @if (recentlyPlayedLoading()) {
+
+        <article class="track-card loading-card">
+
+          <div class="track-placeholder">
+            ♫
+          </div>
+
+          <div class="track-info">
+            <h3>Loading...</h3>
+            <p>Spotify</p>
+          </div>
+
+        </article>
+
+        } @else if (recentlyPlayedError()) {
+
+        <article class="track-card error-card">
+
+          <div class="track-placeholder">
+            !
+          </div>
+
+          <div class="track-info">
+            <h3>Unable to load</h3>
+            <p>Check Spotify connection</p>
+          </div>
+
+        </article>
+
+        } @else {
+
+        @for (item of recentlyPlayed().slice(0, 4); track item.played_at) {
+
+        <article class="track-card">
+
+          <img class="track-cover" [src]="item.track.album?.images?.[0]?.url" [alt]="item.track.name" />
+
+          <div class="track-info">
+
+            <h3>
+              {{ item.track.name }}
+            </h3>
+
+            <p>
+              {{ item.track.artists?.[0]?.name }}
+            </p>
+
+          </div>
+
+        </article>
+
+        }
+
+        }
+
+      </div>
+
+    </section>
+
+  </main>
+
 </div>
