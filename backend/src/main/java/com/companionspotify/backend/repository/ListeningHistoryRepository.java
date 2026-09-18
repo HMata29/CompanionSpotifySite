@@ -7,16 +7,17 @@ import java.time.Instant;
 import java.util.List;
 
 public interface ListeningHistoryRepository
-        extends JpaRepository<ListeningHistory, Long> {
+                extends JpaRepository<ListeningHistory, Long> {
 
-    List<ListeningHistory>
-    findBySpotifyAccountIdOrderByPlayedAtDesc(
-            Long spotifyAccountId
-    );
+        List<ListeningHistory> findBySpotifyAccountIdOrderByPlayedAtDesc(
+                        Long spotifyAccountId);
 
-    boolean existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
-            Long spotifyAccountId,
-            Long trackId,
-            Instant playedAt
-    );
+        boolean existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
+                        Long spotifyAccountId,
+                        Long trackId,
+                        Instant playedAt);
+
+        boolean existsBySpotifyAccountIdAndTrackSpotifyId(
+                        Long spotifyAccountId,
+                        String spotifyId);
 }

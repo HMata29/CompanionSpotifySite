@@ -18,6 +18,7 @@ import com.companionspotify.backend.repository.SpotifyAccountRepository;
 import com.companionspotify.backend.repository.TrackRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
+import com.companionspotify.backend.entity.TopArtist;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -133,6 +134,17 @@ public class SpotifySyncService {
 
                         String name = (String) item.get("name");
 
+                        String imageUrl = null;
+
+                        List<Map<String, Object>> images = (List<Map<String, Object>>) item.get("images");
+
+                        if (images != null && !images.isEmpty()) {
+
+                                Map<String, Object> firstImage = images.get(0);
+
+                                imageUrl = (String) firstImage.get("url");
+                        }
+
                         Artist artist = artistRepository
                                         .findBySpotifyId(spotifyId)
                                         .orElse(null);
@@ -145,6 +157,7 @@ public class SpotifySyncService {
                         }
 
                         artist.setName(name);
+                        artist.setImageUrl(imageUrl);
 
                         artist = artistRepository.save(artist);
 
@@ -214,47 +227,63 @@ public class SpotifySyncService {
                 return saved;
         }
 
+        @SuppressWarnings("unchecked")
         public int syncRecentlyPlayed(
                         HttpSession session) {
 
                 SpotifyAccount account = syncCurrentUser(session);
 
-                Map<String, Object> response = spotifyOAuthService.getRecentlyPlayed(
-                                session);
+                String accessToken = spotifyOAuthService.getAccessToken(session);
 
-                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+                String url = "https://api.spotify.com/v1/me/player/recently-played"
+                                + "?limit=50";
+
+                int pages = 0;
+                int maxPages = 5;
 
                 int saved = 0;
 
-                if (items == null) {
-                        return 0;
-                }
+                while (url != null && pages < maxPages) {
 
-                for (Map<String, Object> item : items) {
+                        Map<String, Object> response = spotifyGet(accessToken, url);
 
-                        Map<String, Object> trackData = (Map<String, Object>) item.get("track");
-
-                        if (trackData == null) {
-                                continue;
+                        if (response == null) {
+                                break;
                         }
 
-                        Track track = saveTrack(trackData);
+                        List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
 
-                        String playedAtString = (String) item.get("played_at");
-
-                        if (playedAtString == null) {
-                                continue;
+                        if (items == null || items.isEmpty()) {
+                                break;
                         }
 
-                        Instant playedAt = Instant.parse(playedAtString);
+                        for (Map<String, Object> item : items) {
 
-                        boolean alreadyExists = listeningHistoryRepository
-                                        .existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
-                                                        account.getId(),
-                                                        track.getId(),
-                                                        playedAt);
+                                Map<String, Object> trackData = (Map<String, Object>) item.get("track");
 
-                        if (!alreadyExists) {
+                                if (trackData == null) {
+                                        continue;
+                                }
+
+                                String playedAtString = (String) item.get("played_at");
+
+                                if (playedAtString == null) {
+                                        continue;
+                                }
+
+                                Instant playedAt = Instant.parse(playedAtString);
+
+                                Track track = saveTrack(trackData);
+
+                                boolean alreadyExists = listeningHistoryRepository
+                                                .existsBySpotifyAccountIdAndTrackIdAndPlayedAt(
+                                                                account.getId(),
+                                                                track.getId(),
+                                                                playedAt);
+
+                                if (alreadyExists) {
+                                        continue;
+                                }
 
                                 ListeningHistory history = new ListeningHistory(
                                                 account,
@@ -265,7 +294,28 @@ public class SpotifySyncService {
 
                                 saved++;
                         }
+
+                        Map<String, Object> cursors = (Map<String, Object>) response.get("cursors");
+
+                        String before = cursors != null
+                                        ? (String) cursors.get("before")
+                                        : null;
+
+                        if (before == null) {
+                                break;
+                        }
+
+                        url = "https://api.spotify.com/v1/me/player/recently-played"
+                                        + "?before="
+                                        + before
+                                        + "&limit=50";
+
+                        pages++;
                 }
+
+                System.out.println(
+                                "TOTALE NUOVI LISTENING HISTORY SALVATI: "
+                                                + saved);
 
                 return saved;
         }
@@ -529,6 +579,21 @@ public class SpotifySyncService {
                 }
         }
 
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> spotifyGet(
+                        String accessToken,
+                        String uri) {
+
+                org.springframework.web.client.RestClient restClient = org.springframework.web.client.RestClient
+                                .create();
+
+                return restClient.get()
+                                .uri(uri)
+                                .headers(headers -> headers.setBearerAuth(accessToken))
+                                .retrieve()
+                                .body(Map.class);
+        }
+
         private Track saveTrack(
                         Map<String, Object> trackData) {
 
@@ -550,6 +615,20 @@ public class SpotifySyncService {
 
                 String artistName = (String) firstArtist.get("name");
 
+                /*
+                 * Get artist image from Spotify.
+                 */
+                String artistImageUrl = null;
+
+                List<Map<String, Object>> artistImages = (List<Map<String, Object>>) firstArtist.get("images");
+
+                if (artistImages != null && !artistImages.isEmpty()) {
+
+                        Map<String, Object> firstArtistImage = artistImages.get(0);
+
+                        artistImageUrl = (String) firstArtistImage.get("url");
+                }
+
                 Artist artist = artistRepository
                                 .findBySpotifyId(spotifyArtistId)
                                 .orElse(null);
@@ -563,7 +642,30 @@ public class SpotifySyncService {
 
                 artist.setName(artistName);
 
+                if (artistImageUrl != null) {
+                        artist.setImageUrl(artistImageUrl);
+                }
+
                 artist = artistRepository.save(artist);
+
+                /*
+                 * Get album cover from Spotify.
+                 */
+                String trackImageUrl = null;
+
+                Map<String, Object> album = (Map<String, Object>) trackData.get("album");
+
+                if (album != null) {
+
+                        List<Map<String, Object>> albumImages = (List<Map<String, Object>>) album.get("images");
+
+                        if (albumImages != null && !albumImages.isEmpty()) {
+
+                                Map<String, Object> firstAlbumImage = albumImages.get(0);
+
+                                trackImageUrl = (String) firstAlbumImage.get("url");
+                        }
+                }
 
                 Track track = trackRepository
                                 .findBySpotifyId(spotifyTrackId)
@@ -582,6 +684,10 @@ public class SpotifySyncService {
                         track.setArtist(artist);
                 }
 
+                if (trackImageUrl != null) {
+                        track.setImageUrl(trackImageUrl);
+                }
+
                 return trackRepository.save(track);
         }
 
@@ -595,12 +701,28 @@ public class SpotifySyncService {
                                                 account.getId());
         }
 
-        public List<Track> getTopTracks() {
-                return trackRepository.findAll();
+        public List<TopTrack> getTopTracks(
+                        HttpSession session,
+                        String timeRange) {
+
+                SpotifyAccount account = syncCurrentUser(session);
+
+                return topTrackRepository
+                                .findBySpotifyAccountIdAndTimeRange(
+                                                account.getId(),
+                                                timeRange);
         }
 
-        public List<Artist> getTopArtists() {
-                return artistRepository.findAll();
+        public List<TopArtist> getTopArtists(
+                        HttpSession session,
+                        String timeRange) {
+
+                SpotifyAccount account = syncCurrentUser(session);
+
+                return topArtistRepository
+                                .findBySpotifyAccountIdAndTimeRange(
+                                                account.getId(),
+                                                timeRange);
         }
 
         public Map<String, Object> getPlaylistSyncStatus() {

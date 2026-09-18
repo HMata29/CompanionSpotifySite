@@ -16,6 +16,9 @@ public class Track {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @ManyToOne
     @JoinColumn(name = "artist_id", nullable = false)
     private Artist artist;
@@ -23,7 +26,10 @@ public class Track {
     public Track() {
     }
 
-    public Track(String spotifyId, String name, Artist artist) {
+    public Track(
+            String spotifyId,
+            String name,
+            Artist artist) {
         this.spotifyId = spotifyId;
         this.name = name;
         this.artist = artist;
@@ -47,6 +53,14 @@ public class Track {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public Artist getArtist() {

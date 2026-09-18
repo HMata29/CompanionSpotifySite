@@ -4,13 +4,13 @@ import com.companionspotify.backend.entity.SpotifyAccount;
 import com.companionspotify.backend.service.SpotifyOAuthService;
 import com.companionspotify.backend.service.SpotifySyncService;
 import jakarta.servlet.http.HttpSession;
+import com.companionspotify.backend.entity.TopArtist;
+import com.companionspotify.backend.entity.TopTrack;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
-import com.companionspotify.backend.entity.Artist;
-import com.companionspotify.backend.entity.Track;
 import java.util.List;
 import com.companionspotify.backend.entity.ListeningHistory;
 
@@ -184,7 +184,7 @@ public class SpotifyController {
         );
         }
 
-    @GetMapping("/api/spotify/history")
+        @GetMapping("/api/spotify/history")
         public List<ListeningHistory> history(
                 HttpSession session
         ) {
@@ -192,13 +192,23 @@ public class SpotifyController {
         }
 
         @GetMapping("/api/music/top-tracks")
-        public List<Track> topTracksFromDatabase() {
-            return spotifySyncService.getTopTracks();
+        public List<TopTrack> topTracksFromDatabase(
+                        @RequestParam(defaultValue = "medium_term") String timeRange,
+                        HttpSession session) {
+
+                return spotifySyncService.getTopTracks(
+                                session,
+                                timeRange);
         }
-        
+
         @GetMapping("/api/music/top-artists")
-        public List<Artist> topArtistsFromDatabase() {
-            return spotifySyncService.getTopArtists();
+        public List<TopArtist> topArtistsFromDatabase(
+                        @RequestParam(defaultValue = "medium_term") String timeRange,
+                        HttpSession session) {
+
+                return spotifySyncService.getTopArtists(
+                                session,
+                                timeRange);
         }
 
         @GetMapping("/api/spotify/sync/playlists")

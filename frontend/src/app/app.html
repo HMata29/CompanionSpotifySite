@@ -2,38 +2,73 @@
 
   <aside class="sidebar">
 
-    <div class="logo">
-      <span class="logo-icon">♫</span>
+    <div class="brand">
+      <div class="brand-icon">♪</div>
       <span>Companion</span>
     </div>
 
     <nav class="main-nav">
+
       <a class="nav-item active">
-        <span>⌂</span>
+        <span class="nav-icon">⌂</span>
         <span>Dashboard</span>
       </a>
 
       <a class="nav-item">
-        <span>♫</span>
+        <span class="nav-icon">♫</span>
         <span>Your Music</span>
       </a>
 
       <a class="nav-item">
-        <span>✦</span>
+        <span class="nav-icon">✦</span>
         <span>Discover</span>
       </a>
 
       <a class="nav-item">
-        <span>▣</span>
-        <span>Playlists</span>
+        <span class="nav-icon">◷</span>
+        <span>Recently Played</span>
       </a>
+
     </nav>
 
-    <div class="sidebar-bottom">
-      <div class="connection-status">
-        <span class="status-dot"></span>
-        <span>Spotify connected</span>
+    <div class="sidebar-section">
+
+      <div class="sidebar-label">
+        YOUR PLAYLISTS
       </div>
+
+      <a class="playlist-link">
+        Daily Companion
+      </a>
+
+      <a class="playlist-link">
+        Discover Weekly
+      </a>
+
+      <a class="playlist-link">
+        Late Night R&B
+      </a>
+
+    </div>
+
+    <div class="sidebar-bottom">
+
+      <div class="connection-status">
+
+        <span class="status-dot"></span>
+
+        <div>
+          <div class="status-title">
+            Spotify connected
+          </div>
+
+          <div class="status-subtitle">
+            Your account is synced
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
   </aside>
@@ -43,178 +78,478 @@
 
     <header class="topbar">
 
-      <div>
-        <p class="eyebrow">YOUR MUSIC COMPANION</p>
-        <h1>Good morning 👋</h1>
+      <div class="mobile-brand">
+        ♪ Companion
       </div>
 
-      <button class="profile-button">
-        <span class="profile-avatar">H</span>
-        <span>Hedrick</span>
-        <span>⌄</span>
-      </button>
+      <div class="topbar-spacer"></div>
+
+      <div class="user-area">
+
+        <div class="user-avatar">
+          H
+        </div>
+
+        <div class="user-info">
+
+          <span class="user-name">
+            Hedrick
+          </span>
+
+          <span class="user-label">
+            Spotify user
+          </span>
+
+        </div>
+
+      </div>
 
     </header>
 
 
-    <section class="hero">
+    <div class="dashboard">
 
-      <div class="hero-content">
-        <p class="hero-label">YOUR DAILY MUSIC INTELLIGENCE</p>
+      <section class="hero">
 
-        <h2>
-          Discover something
-          <span>you'll love.</span>
-        </h2>
+        <div class="hero-text">
 
-        <p class="hero-description">
-          Your listening habits, analysed to find music
-          you might have missed.
-        </p>
+          <p class="eyebrow">
+            YOUR MUSIC COMPANION
+          </p>
 
-        <button class="primary-button">
-          <span>✦</span>
-          Generate today's playlist
-        </button>
-      </div>
+          <h1>
+            Good morning, Hedrick.
+          </h1>
 
-      <div class="hero-decoration">
-        <div class="vinyl">
-          <div class="vinyl-center"></div>
-        </div>
-      </div>
+          <p class="hero-description">
+            Here's a look at what's been shaping your listening lately.
+          </p>
 
-    </section>
-
-
-    <section class="section">
-
-      <div class="section-header">
-        <div>
-          <p class="section-label">YOUR LISTENING</p>
-          <h2>Music at a glance</h2>
         </div>
 
-        <button class="text-button">
-          View all →
-        </button>
-      </div>
+      </section>
 
 
-      <div class="stats-grid">
+      <section class="stats-grid">
 
         <article class="stat-card">
-          <span class="stat-icon">♫</span>
 
-          <div>
-            <p class="stat-title">Top tracks</p>
-            <p class="stat-value">50</p>
-            <p class="stat-description">this month</p>
-          </div>
-        </article>
-
-
-        <article class="stat-card">
-          <span class="stat-icon">♬</span>
-
-          <div>
-            <p class="stat-title">Top artists</p>
-            <p class="stat-value">50</p>
-            <p class="stat-description">this month</p>
-          </div>
-        </article>
-
-
-        <article class="stat-card">
-          <span class="stat-icon">◷</span>
-
-          <div>
-            <p class="stat-title">Recently played</p>
-            <p class="stat-value">50</p>
-            <p class="stat-description">latest plays</p>
-          </div>
-        </article>
-
-      </div>
-
-    </section>
-
-
-    <section class="section">
-
-      <div class="section-header">
-        <div>
-          <p class="section-label">LISTEN AGAIN</p>
-          <h2>Recently played</h2>
-        </div>
-
-        <button class="text-button">
-          See history →
-        </button>
-      </div>
-
-
-      <div class="track-grid">
-
-        @if (recentlyPlayedLoading()) {
-
-        <article class="track-card loading-card">
-
-          <div class="track-placeholder">
+          <div class="stat-icon">
             ♫
           </div>
 
-          <div class="track-info">
-            <h3>Loading...</h3>
-            <p>Spotify</p>
+          <div class="stat-content">
+
+            <span class="stat-label">
+              TOP TRACKS
+            </span>
+
+            <strong>
+              {{ getTopTrackCount() }}
+            </strong>
+
+            <span class="stat-description">
+              tracks in your current profile
+            </span>
+
           </div>
 
         </article>
 
-        } @else if (recentlyPlayedError()) {
 
-        <article class="track-card error-card">
+        <article class="stat-card">
 
-          <div class="track-placeholder">
-            !
+          <div class="stat-icon">
+            ●
           </div>
 
-          <div class="track-info">
-            <h3>Unable to load</h3>
-            <p>Check Spotify connection</p>
+          <div class="stat-content">
+
+            <span class="stat-label">
+              TOP ARTISTS
+            </span>
+
+            <strong>
+              {{ getTopArtistCount() }}
+            </strong>
+
+            <span class="stat-description">
+              artists shaping your taste
+            </span>
+
           </div>
 
         </article>
+
+
+        <article class="stat-card">
+
+          <div class="stat-icon">
+            ◷
+          </div>
+
+          <div class="stat-content">
+
+            <span class="stat-label">
+              RECENTLY PLAYED
+            </span>
+
+            <strong>
+              {{ getRecentlyPlayedCount() }}
+            </strong>
+
+            <span class="stat-description">
+              recent listening events
+            </span>
+
+          </div>
+
+        </article>
+
+      </section>
+
+
+      <section class="time-range-section">
+
+        <div class="time-range-info">
+
+          <span class="time-range-label">
+            LISTENING PERIOD
+          </span>
+
+          <span class="time-range-description">
+            Explore how your taste changes over time
+          </span>
+
+        </div>
+
+        <div class="time-range-selector">
+
+          <button class="time-range-button" [class.selected]="isTimeRangeSelected('short_term')"
+            (click)="selectTimeRange('short_term')">
+            Short term
+          </button>
+
+          <button class="time-range-button" [class.selected]="isTimeRangeSelected('medium_term')"
+            (click)="selectTimeRange('medium_term')">
+            Medium term
+          </button>
+
+          <button class="time-range-button" [class.selected]="isTimeRangeSelected('long_term')"
+            (click)="selectTimeRange('long_term')">
+            Long term
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <section class="content-grid">
+
+
+        <article class="panel top-tracks-panel">
+
+          <div class="panel-header">
+
+            <div>
+
+              <p class="panel-eyebrow">
+                YOUR MUSIC
+              </p>
+
+              <h2>
+                Top Tracks
+              </h2>
+
+            </div>
+
+            <button class="panel-action">
+              View all
+            </button>
+
+          </div>
+
+
+          @if (topTracksLoading()) {
+
+          <div class="loading-state">
+            Loading your top tracks...
+          </div>
+
+          } @else if (topTracksError()) {
+
+          <div class="error-state">
+            Unable to load your top tracks.
+          </div>
+
+          } @else {
+
+          <div class="track-list">
+
+            @for (
+            topTrack of topTracks().slice(0, 10);
+            track topTrack.id;
+            let i = $index
+            ) {
+
+            <div class="track-row">
+
+              <span class="track-number">
+                {{ (i + 1).toString().padStart(2, '0') }}
+              </span>
+
+
+              @if (topTrack.track.imageUrl) {
+
+              <img class="track-cover" [src]="topTrack.track.imageUrl" [alt]="topTrack.track.name" />
+
+              } @else {
+
+              <div class="track-cover placeholder-cover">
+                ♫
+              </div>
+
+              }
+
+
+              <div class="track-info">
+
+                <strong>
+                  {{ topTrack.track.name }}
+                </strong>
+
+                <span>
+                  {{ topTrack.track.artist.name }}
+                </span>
+
+              </div>
+
+              <button class="play-button">
+                ▶
+              </button>
+
+            </div>
+
+            }
+
+          </div>
+
+          }
+
+        </article>
+
+
+        <article class="panel recently-panel">
+
+          <div class="panel-header">
+
+            <div>
+
+              <p class="panel-eyebrow">
+                LISTENING HISTORY
+              </p>
+
+              <h2>
+                Recently Played
+              </h2>
+
+            </div>
+
+            <button class="panel-action">
+              View all
+            </button>
+
+          </div>
+
+
+          @if (recentlyPlayedLoading()) {
+
+          <div class="loading-state">
+            Loading your listening history...
+          </div>
+
+          } @else if (recentlyPlayedError()) {
+
+          <div class="error-state">
+            Unable to load your listening history.
+          </div>
+
+          } @else {
+
+          <div class="recent-list">
+
+            @for (
+            item of recentlyPlayed().slice(0, 6);
+            track item.played_at
+            ) {
+
+            <div class="recent-row">
+
+              @if (getAlbumImage(item)) {
+
+              <img class="recent-cover" [src]="getAlbumImage(item)" [alt]="item.track.name" />
+
+              } @else {
+
+              <div class="recent-cover placeholder-cover">
+                ♫
+              </div>
+
+              }
+
+              <div class="recent-info">
+
+                <strong>
+                  {{ item.track.name }}
+                </strong>
+
+                <span>
+                  {{ getRecentlyPlayedArtist(item) }}
+                </span>
+
+              </div>
+
+              <span class="recent-time">
+                {{ formatPlayedAt(item.played_at) }}
+              </span>
+
+            </div>
+
+            }
+
+          </div>
+
+          }
+
+        </article>
+
+      </section>
+
+
+      <section class="panel artists-panel">
+
+        <div class="panel-header">
+
+          <div>
+
+            <p class="panel-eyebrow">
+              YOUR MUSIC
+            </p>
+
+            <h2>
+              Top Artists
+            </h2>
+
+          </div>
+
+          <button class="panel-action">
+            View all
+          </button>
+
+        </div>
+
+
+        @if (topArtistsLoading()) {
+
+        <div class="loading-state">
+          Loading your top artists...
+        </div>
+
+        } @else if (topArtistsError()) {
+
+        <div class="error-state">
+          Unable to load your top artists.
+        </div>
 
         } @else {
 
-        @for (item of recentlyPlayed().slice(0, 4); track item.played_at) {
+        <div class="artist-grid">
 
-        <article class="track-card">
+          @for (
+          topArtist of topArtists().slice(0, 10);
+          track topArtist.id;
+          let i = $index
+          ) {
 
-          <img class="track-cover" [src]="item.track.album?.images?.[0]?.url" [alt]="item.track.name" />
+          <div class="artist-card">
 
-          <div class="track-info">
+            <div class="artist-number">
+              {{ (i + 1).toString().padStart(2, '0') }}
+            </div>
 
-            <h3>
-              {{ item.track.name }}
-            </h3>
+            @if (topArtist.artist.imageUrl) {
+
+            <img class="artist-avatar" [src]="topArtist.artist.imageUrl" [alt]="topArtist.artist.name" />
+
+            } @else {
+
+            <div class="artist-avatar">
+              ♪
+            </div>
+
+            }
+
+            <div class="artist-info">
+
+              <strong>
+                {{ topArtist.artist.name }}
+              </strong>
+
+              <span>
+                Top artist
+              </span>
+
+            </div>
+
+          </div>
+
+          }
+
+        </div>
+
+        }
+
+      </section>
+
+
+      <section class="discover-panel panel">
+
+        <div class="discover-content">
+
+          <div>
+
+            <p class="panel-eyebrow">
+              COMPANION AI
+            </p>
+
+            <h2>
+              Discover something new.
+            </h2>
 
             <p>
-              {{ item.track.artists?.[0]?.name }}
+              Your personalised music discovery is coming next.
+              We'll combine your listening habits, favourite artists
+              and music history to find tracks you might actually love.
             </p>
 
           </div>
 
-        </article>
+          <button class="discover-button">
 
-        }
+            Explore discovery
 
-        }
+            <span>
+              →
+            </span>
 
-      </div>
+          </button>
 
-    </section>
+        </div>
+
+      </section>
+
+    </div>
 
   </main>
 

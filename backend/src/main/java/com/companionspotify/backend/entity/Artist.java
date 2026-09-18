@@ -16,6 +16,9 @@ public class Artist {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     public Artist() {
     }
 
@@ -42,5 +45,13 @@ public class Artist {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }
