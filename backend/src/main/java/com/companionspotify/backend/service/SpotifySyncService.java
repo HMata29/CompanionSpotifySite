@@ -6,6 +6,10 @@ import com.companionspotify.backend.entity.Playlist;
 import com.companionspotify.backend.entity.PlaylistTrack;
 import com.companionspotify.backend.entity.SpotifyAccount;
 import com.companionspotify.backend.entity.Track;
+import com.companionspotify.backend.entity.TopTrack;
+import com.companionspotify.backend.entity.TopArtist;
+import com.companionspotify.backend.repository.TopArtistRepository;
+import com.companionspotify.backend.repository.TopTrackRepository;
 import com.companionspotify.backend.repository.ArtistRepository;
 import com.companionspotify.backend.repository.ListeningHistoryRepository;
 import com.companionspotify.backend.repository.PlaylistRepository;
@@ -16,8 +20,11 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SpotifySyncService {
@@ -30,6 +37,16 @@ public class SpotifySyncService {
         private final PlaylistRepository playlistRepository;
         private final PlaylistTrackRepository playlistTrackRepository;
         private final ListeningHistoryRepository listeningHistoryRepository;
+        private final TopTrackRepository topTrackRepository;
+        private final TopArtistRepository topArtistRepository;
+
+        private volatile boolean playlistSyncRunning = false;
+
+        private final AtomicInteger playlistSyncProcessed = new AtomicInteger(0);
+
+        private final AtomicInteger playlistSyncTotal = new AtomicInteger(0);
+
+        private final AtomicInteger playlistSyncFailed = new AtomicInteger(0);
 
         public SpotifySyncService(
                         SpotifyOAuthService spotifyOAuthService,
@@ -38,7 +55,9 @@ public class SpotifySyncService {
                         TrackRepository trackRepository,
                         PlaylistRepository playlistRepository,
                         PlaylistTrackRepository playlistTrackRepository,
-                        ListeningHistoryRepository listeningHistoryRepository) {
+                        ListeningHistoryRepository listeningHistoryRepository,
+                        TopTrackRepository topTrackRepository,
+                        TopArtistRepository topArtistRepository) {
                 this.spotifyOAuthService = spotifyOAuthService;
                 this.spotifyAccountRepository = spotifyAccountRepository;
                 this.artistRepository = artistRepository;
@@ -46,12 +65,28 @@ public class SpotifySyncService {
                 this.playlistRepository = playlistRepository;
                 this.playlistTrackRepository = playlistTrackRepository;
                 this.listeningHistoryRepository = listeningHistoryRepository;
+                this.topTrackRepository = topTrackRepository;
+                this.topArtistRepository = topArtistRepository;
         }
 
         public SpotifyAccount syncCurrentUser(
                         HttpSession session) {
 
                 Map<String, Object> spotifyUser = spotifyOAuthService.getCurrentUser(session);
+
+                return saveSpotifyAccount(spotifyUser);
+        }
+
+        private SpotifyAccount syncCurrentUser(
+                        String accessToken) {
+
+                Map<String, Object> spotifyUser = spotifyOAuthService.getCurrentUser(accessToken);
+
+                return saveSpotifyAccount(spotifyUser);
+        }
+
+        private SpotifyAccount saveSpotifyAccount(
+                        Map<String, Object> spotifyUser) {
 
                 String spotifyUserId = (String) spotifyUser.get("id");
 
@@ -62,9 +97,11 @@ public class SpotifySyncService {
                                 .orElse(null);
 
                 if (account == null) {
+
                         account = new SpotifyAccount(
                                         spotifyUserId,
                                         displayName);
+
                 }
 
                 account.setDisplayName(displayName);
@@ -76,7 +113,7 @@ public class SpotifySyncService {
                         HttpSession session,
                         String timeRange) {
 
-                syncCurrentUser(session);
+                SpotifyAccount account = syncCurrentUser(session);
 
                 Map<String, Object> response = spotifyOAuthService.getTopArtists(
                                 session,
@@ -101,6 +138,7 @@ public class SpotifySyncService {
                                         .orElse(null);
 
                         if (artist == null) {
+
                                 artist = new Artist(
                                                 spotifyId,
                                                 name);
@@ -108,9 +146,25 @@ public class SpotifySyncService {
 
                         artist.setName(name);
 
-                        artistRepository.save(artist);
+                        artist = artistRepository.save(artist);
 
-                        saved++;
+                        boolean alreadyExists = topArtistRepository
+                                        .existsBySpotifyAccountIdAndArtistIdAndTimeRange(
+                                                        account.getId(),
+                                                        artist.getId(),
+                                                        timeRange);
+
+                        if (!alreadyExists) {
+
+                                TopArtist topArtist = new TopArtist(
+                                                account,
+                                                artist,
+                                                timeRange);
+
+                                topArtistRepository.save(topArtist);
+
+                                saved++;
+                        }
                 }
 
                 return saved;
@@ -120,7 +174,7 @@ public class SpotifySyncService {
                         HttpSession session,
                         String timeRange) {
 
-                syncCurrentUser(session);
+                SpotifyAccount account = syncCurrentUser(session);
 
                 Map<String, Object> response = spotifyOAuthService.getTopTracks(
                                 session,
@@ -136,9 +190,25 @@ public class SpotifySyncService {
 
                 for (Map<String, Object> item : items) {
 
-                        saveTrack(item);
+                        Track track = saveTrack(item);
 
-                        saved++;
+                        boolean alreadyExists = topTrackRepository
+                                        .existsBySpotifyAccountIdAndTrackIdAndTimeRange(
+                                                        account.getId(),
+                                                        track.getId(),
+                                                        timeRange);
+
+                        if (!alreadyExists) {
+
+                                TopTrack topTrack = new TopTrack(
+                                                account,
+                                                track,
+                                                timeRange);
+
+                                topTrackRepository.save(topTrack);
+
+                                saved++;
+                        }
                 }
 
                 return saved;
@@ -200,13 +270,59 @@ public class SpotifySyncService {
                 return saved;
         }
 
+        public void syncPlaylistsAsync(
+                        HttpSession session) {
+
+                if (playlistSyncRunning) {
+                        return;
+                }
+
+                String accessToken = spotifyOAuthService.getAccessToken(session);
+
+                playlistSyncRunning = true;
+                playlistSyncProcessed.set(0);
+                playlistSyncTotal.set(0);
+                playlistSyncFailed.set(0);
+
+                Thread.startVirtualThread(() -> {
+
+                        try {
+
+                                syncPlaylists(accessToken);
+
+                        } catch (Exception e) {
+
+                                System.out.println(
+                                                "PLAYLIST SYNC FAILED: "
+                                                                + e.getClass().getSimpleName()
+                                                                + " | "
+                                                                + e.getMessage());
+
+                        } finally {
+
+                                playlistSyncRunning = false;
+                        }
+                });
+        }
+
         public int syncPlaylists(
                         HttpSession session) {
 
-                SpotifyAccount account = syncCurrentUser(session);
+                String accessToken = spotifyOAuthService.getAccessToken(session);
+
+                return syncPlaylists(accessToken);
+        }
+
+        private int syncPlaylists(
+                        String accessToken) {
+
+                SpotifyAccount account = syncCurrentUser(accessToken);
 
                 List<Map<String, Object>> playlistItems = spotifyOAuthService.getAllPlaylists(
-                                session);
+                                accessToken);
+
+                playlistSyncTotal.set(
+                                playlistItems.size());
 
                 int saved = 0;
 
@@ -216,11 +332,14 @@ public class SpotifySyncService {
 
                         String name = (String) playlistData.get("name");
 
+                        String snapshotId = (String) playlistData.get("snapshot_id");
+
                         Map<String, Object> externalUrls = (Map<String, Object>) playlistData.get("external_urls");
 
                         String spotifyUrl = null;
 
                         if (externalUrls != null) {
+
                                 spotifyUrl = (String) externalUrls.get("spotify");
                         }
 
@@ -228,12 +347,24 @@ public class SpotifySyncService {
                                         .findBySpotifyId(spotifyPlaylistId)
                                         .orElse(null);
 
+                        boolean isNewPlaylist = playlist == null;
+
+                        boolean playlistChanged = true;
+
+                        if (playlist != null) {
+
+                                playlistChanged = snapshotId == null
+                                                || !snapshotId.equals(
+                                                                playlist.getSnapshotId());
+                        }
+
                         if (playlist == null) {
 
                                 playlist = new Playlist(
                                                 spotifyPlaylistId,
                                                 name,
                                                 spotifyUrl,
+                                                snapshotId,
                                                 account);
 
                         } else {
@@ -249,17 +380,43 @@ public class SpotifySyncService {
                                         "SYNC PLAYLIST: "
                                                         + playlist.getName()
                                                         + " | "
-                                                        + playlist.getSpotifyId());
+                                                        + playlist.getSpotifyId()
+                                                        + " | changed="
+                                                        + playlistChanged);
+
+                        if (!isNewPlaylist && !playlistChanged) {
+
+                                playlistSyncProcessed.incrementAndGet();
+
+                                System.out.println(
+                                                "SKIP PLAYLIST: "
+                                                                + playlist.getName()
+                                                                + " | snapshot unchanged");
+
+                                System.out.println(
+                                                "PLAYLIST SYNC PROGRESS: "
+                                                                + playlistSyncProcessed.get()
+                                                                + "/"
+                                                                + playlistSyncTotal.get());
+
+                                continue;
+                        }
 
                         try {
 
                                 syncPlaylistItems(
-                                                session,
+                                                accessToken,
                                                 playlist);
+
+                                playlist.setSnapshotId(snapshotId);
+
+                                playlistRepository.save(playlist);
 
                                 saved++;
 
                         } catch (Exception e) {
+
+                                playlistSyncFailed.incrementAndGet();
 
                                 System.out.println(
                                                 "SKIPPING PLAYLIST: "
@@ -267,20 +424,36 @@ public class SpotifySyncService {
                                                                 + " | "
                                                                 + playlist.getSpotifyId()
                                                                 + " | "
+                                                                + e.getClass().getSimpleName()
+                                                                + " | "
                                                                 + e.getMessage());
-                                                           }
+                        }
+
+                        playlistSyncProcessed.incrementAndGet();
+
+                        System.out.println(
+                                        "PLAYLIST SYNC PROGRESS: "
+                                                        + playlistSyncProcessed.get()
+                                                        + "/"
+                                                        + playlistSyncTotal.get());
                 }
 
                 return saved;
         }
 
         private void syncPlaylistItems(
-                        HttpSession session,
+                        String accessToken,
                         Playlist playlist) {
 
                 List<Map<String, Object>> items = spotifyOAuthService.getAllPlaylistItems(
-                                session,
+                                accessToken,
                                 playlist.getSpotifyId());
+
+                /*
+                 * Keep track of all Spotify track IDs that are
+                 * currently present in the playlist.
+                 */
+                Set<Long> currentTrackIds = new HashSet<>();
 
                 int position = 0;
 
@@ -298,25 +471,61 @@ public class SpotifySyncService {
                                 continue;
                         }
 
+                        String spotifyTrackId = (String) trackData.get("id");
+
+                        if (spotifyTrackId == null) {
+                                continue;
+                        }
+
                         Track track = saveTrack(trackData);
 
-                        boolean alreadyExists = playlistTrackRepository
-                                        .existsByPlaylistIdAndTrackId(
-                                                        playlist.getId(),
-                                                        track.getId());
+                        currentTrackIds.add(track.getId());
 
-                        if (!alreadyExists) {
+                        PlaylistTrack playlistTrack = playlistTrackRepository
+                                        .findByPlaylistId(
+                                                        playlist.getId())
+                                        .stream()
+                                        .filter(existing -> existing.getTrack()
+                                                        .getId()
+                                                        .equals(track.getId()))
+                                        .findFirst()
+                                        .orElse(null);
 
-                                PlaylistTrack playlistTrack = new PlaylistTrack(
+                        if (playlistTrack == null) {
+
+                                playlistTrack = new PlaylistTrack(
                                                 playlist,
                                                 track,
                                                 position);
 
-                                playlistTrackRepository.save(
-                                                playlistTrack);
+                        } else {
+
+                                playlistTrack.setTrackPosition(
+                                                position);
                         }
 
+                        playlistTrackRepository.save(
+                                        playlistTrack);
+
                         position++;
+                }
+
+                /*
+                 * Remove tracks that are no longer present
+                 * in the Spotify playlist.
+                 */
+                List<PlaylistTrack> existingTracks = playlistTrackRepository
+                                .findByPlaylistId(
+                                                playlist.getId());
+
+                for (PlaylistTrack existingTrack : existingTracks) {
+
+                        if (!currentTrackIds.contains(
+                                        existingTrack.getTrack().getId())) {
+
+                                playlistTrackRepository.delete(
+                                                existingTrack);
+                        }
                 }
         }
 
@@ -330,6 +539,7 @@ public class SpotifySyncService {
                 List<Map<String, Object>> artists = (List<Map<String, Object>>) trackData.get("artists");
 
                 if (artists == null || artists.isEmpty()) {
+
                         throw new IllegalStateException(
                                         "Track has no artist: " + trackName);
                 }
@@ -386,12 +596,23 @@ public class SpotifySyncService {
         }
 
         public List<Track> getTopTracks() {
-
                 return trackRepository.findAll();
         }
 
         public List<Artist> getTopArtists() {
-
                 return artistRepository.findAll();
+        }
+
+        public Map<String, Object> getPlaylistSyncStatus() {
+
+                String status = playlistSyncRunning
+                                ? "RUNNING"
+                                : "IDLE";
+
+                return Map.of(
+                                "status", status,
+                                "processed", playlistSyncProcessed.get(),
+                                "total", playlistSyncTotal.get(),
+                                "failed", playlistSyncFailed.get());
         }
 }

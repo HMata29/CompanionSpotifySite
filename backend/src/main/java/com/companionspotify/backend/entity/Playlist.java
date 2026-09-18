@@ -19,6 +19,9 @@ public class Playlist {
     @Column(name = "spotify_url")
     private String spotifyUrl;
 
+    @Column(name = "snapshot_id")
+    private String snapshotId;
+
     @ManyToOne
     @JoinColumn(name = "spotify_account_id", nullable = false)
     private SpotifyAccount spotifyAccount;
@@ -30,11 +33,12 @@ public class Playlist {
             String spotifyId,
             String name,
             String spotifyUrl,
-            SpotifyAccount spotifyAccount
-    ) {
+            String snapshotId,
+            SpotifyAccount spotifyAccount) {
         this.spotifyId = spotifyId;
         this.name = name;
         this.spotifyUrl = spotifyUrl;
+        this.snapshotId = snapshotId;
         this.spotifyAccount = spotifyAccount;
     }
 
@@ -64,6 +68,14 @@ public class Playlist {
 
     public void setSpotifyUrl(String spotifyUrl) {
         this.spotifyUrl = spotifyUrl;
+    }
+
+    public String getSnapshotId() {
+        return snapshotId;
+    }
+
+    public void setSnapshotId(String snapshotId) {
+        this.snapshotId = snapshotId;
     }
 
     public SpotifyAccount getSpotifyAccount() {

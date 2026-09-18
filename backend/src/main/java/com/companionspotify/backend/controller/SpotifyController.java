@@ -206,13 +206,16 @@ public class SpotifyController {
                 HttpSession session
         ) {
 
-        int saved =
-                spotifySyncService.syncPlaylists(
-                        session
-                );
+        spotifySyncService.syncPlaylistsAsync(session);
 
         return Map.of(
-                "savedPlaylists", saved
+                "status", "STARTED"
         );
+        }
+
+        @GetMapping("/api/spotify/sync/playlists/status")
+        public Map<String, Object> playlistSyncStatus() {
+
+        return spotifySyncService.getPlaylistSyncStatus();
         }
 }
